@@ -1,0 +1,783 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <title>Knowledge Extractor UI</title>
+    <script src="https://cdn.tailwindcss.com"></script>
+    <script defer src="https://unpkg.com/alpinejs@3.x.x/dist/cdn.min.js"></script>
+    <style>[x-cloak]{display:none!important}</style>
+</head>
+<body class="bg-gray-100 h-screen flex" x-data="app()">
+
+    <aside class="w-64 bg-white border-r p-4 flex flex-col justify-between">
+        <div>
+            <h2 class="text-xl font-bold mb-4">Projects</h2>
+            <div class="space-y-2">
+                <template x-for="project in projects" :key="project.id">
+                    <div class="flex items-center justify-between p-2 rounded hover:bg-gray-100 border-b border-gray-100">
+                        <button type="button"
+                                @click="selectedProject = project; loadEntries(0);"
+                                class="flex-1 text-left text-sm font-medium p-2 rounded block"
+                                :class="selectedProject && selectedProject.id === project.id ? 'text-blue-600 bg-blue-50 font-bold border-l-4 border-blue-600' : 'text-gray-700 hover:bg-gray-50'">
+                            <span x-text="project.name"></span>
+                            <span class="text-xs text-gray-400 block font-mono" x-text="`ID: ${project.id}`"></span>
+                        </button>
+
+                        <button @click.stop="deleteProject(project.id)"
+                                class="text-red-500 hover:text-red-700 p-1.5 rounded hover:bg-red-50 transition-colors text-xs"
+                                title="Delete Project">
+                            🗑️
+                        </button>
+                    </div>
+                </template>
+            </div>
+            <hr class="my-4">
+            <button @click="showModal = true" class="w-full bg-green-600 hover:bg-green-700 text-white p-2 rounded transition font-medium">+ New Project</button>
+        </div>
+
+        <div class="border-t pt-4">
+            <button @click="openConfigModal" class="w-full bg-gray-800 hover:bg-gray-900 text-white p-2 rounded transition font-medium flex items-center justify-center gap-2">
+                ⚙️ System Configuration
+            </button>
+        </div>
+    </aside>
+
+    <main class="flex-1 flex flex-col p-6 overflow-y-auto">
+        <div class="flex space-x-6 border-b border-gray-200 mb-6 bg-white p-4 rounded shadow-sm">
+            <button @click="tab = 'ingest'" :class="tab === 'ingest' ? 'font-bold text-blue-600 border-b-2 border-blue-600' : 'text-gray-500'" class="pb-2 transition">1. Test / Ingest</button>
+            <button @click="tab = 'analysis'" :class="tab === 'analysis' ? 'font-bold text-blue-600 border-b-2 border-blue-600' : 'text-gray-500'" class="pb-2 transition">2. Analysis</button>
+            <button @click="tab = 'query'" :class="tab === 'query' ? 'font-bold text-blue-600 border-b-2 border-blue-600' : 'text-gray-500'" class="pb-2 transition">3. Query</button>
+        </div>
+
+        <div x-show="tab === 'ingest'" class="space-y-6">
+            <div class="bg-white p-4 rounded-lg shadow border border-gray-200">
+                <label class="block text-xs font-bold text-gray-500 uppercase mb-2">Text to Analyze / Insert</label>
+                <textarea x-model="textInput" class="w-full h-32 p-3 border rounded-lg focus:ring-2 focus:ring-blue-500 outline-none text-sm" placeholder="Paste the text to test here..."></textarea>
+
+                <div class="flex items-center justify-between mt-4">
+                    <div class="flex items-center gap-6">
+                        <div>
+                            <label class="block text-xs font-bold text-gray-500 uppercase">Language</label>
+                            <span class="text-sm font-semibold text-blue-600" x-text="configOptions.language.toUpperCase()"></span>
+                        </div>
+                        <div class="flex items-center gap-2">
+                            <label class="block text-xs font-bold text-gray-500 uppercase">AI Mode</label>
+                            <button @click="configOptions.aiMode = !configOptions.aiMode"
+                                    :class="configOptions.aiMode ? 'bg-indigo-600' : 'bg-gray-300'"
+                                    class="relative inline-flex h-6 w-11 items-center rounded-full transition">
+                                <span :class="configOptions.aiMode ? 'translate-x-6' : 'translate-x-1'" class="inline-block h-4 w-4 transform rounded-full bg-white transition"></span>
+                            </button>
+                        </div>
+                    </div>
+                    <div class="flex gap-2">
+                        <button @click="runIngestTest()"
+                                :disabled="loadingTest"
+                                class="bg-gray-800 text-white px-4 py-2 rounded text-sm font-bold hover:bg-gray-900 transition flex items-center gap-2">
+                            <svg x-show="loadingTest" class="animate-spin h-4 w-4 text-white" viewBox="0 0 24 24">
+                                <circle class="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" stroke-width="4"></circle>
+                                <path class="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4z"></path>
+                            </svg>
+                            <span x-text="loadingTest ? 'Processing text...' : 'Run Test'"></span>
+                        </button>
+
+                        <div class="flex items-center gap-2">
+                            <input type="file" id="fileInput" class="hidden" @change="selectedFileName = $event.target.files[0].name">
+                            <button @click="document.getElementById('fileInput').click()" class="bg-blue-600 text-white px-4 py-2 rounded text-sm font-bold hover:bg-blue-700 transition">Select File</button>
+                            <div x-show="selectedFileName" class="flex items-center gap-2 text-xs text-gray-600 bg-gray-100 px-2 py-1 rounded">
+                                <span>📄 <span x-text="selectedFileName" class="font-bold"></span></span>
+                                <button @click="selectedFileName = ''; document.getElementById('fileInput').value = ''" class="text-red-500 hover:text-red-700 font-bold ml-1">✕</button>
+                            </div>
+                        </div>
+                        <button @click="uploadFile()" class="bg-green-600 text-white px-4 py-2 rounded text-sm font-bold hover:bg-green-700 transition">Load File</button>
+                    </div>
+                </div>
+            </div>
+
+            <div x-show="testResults.length > 0" class="bg-white p-6 shadow rounded border-t-4 border-blue-600">
+                <div class="flex justify-between items-center mb-4">
+                    <h3 class="text-lg font-bold text-gray-800">📋 Test Results</h3>
+                    <button @click="testResults = []" class="text-sm text-gray-500 hover:text-red-500">Clear results</button>
+                </div>
+
+                <div class="space-y-6">
+                    <template x-for="p in testResults" :key="p.id_paragrafo">
+                        <div class="bg-gray-50 p-4 rounded border border-gray-200">
+                            <div class="flex items-center gap-2 mb-2">
+                                <span class="bg-blue-600 text-white text-xs px-2 py-0.5 rounded font-mono" x-text="'Paragraph ' + p.id_paragrafo"></span>
+                                <span x-show="p.testo_semplificato && p.testo_semplificato !== p.testo_originale" class="bg-purple-100 text-purple-800 text-xs px-2 py-0.5 rounded font-medium">Simplified with LLM</span>
+                            </div>
+
+                            <p class="text-sm text-gray-700 mb-4 bg-white p-2 border rounded italic" x-text="p.testo_originale"></p>
+
+                            <div class="grid grid-cols-2 gap-4">
+                                <div class="bg-green-50 p-3 rounded border border-green-200">
+                                    <h4 class="text-xs font-bold text-green-800 uppercase tracking-wider mb-2">✅ Reconciled Entities (Above Threshold)</h4>
+                                    <div class="space-y-2">
+                                        <template x-if="p.accepted_entities.length === 0">
+                                            <p class="text-xs text-green-600 italic">No entities above the defined threshold.</p>
+                                        </template>
+                                        <template x-for="ent in p.accepted_entities" :key="ent.wikidata_id">
+                                            <div class="bg-white p-2 rounded border border-green-300 shadow-sm">
+                                                <div class="flex justify-between items-start">
+                                                    <a :href="'https://www.wikidata.org/wiki/' + ent.wikidata_id" target="_blank" class="text-xs font-bold text-green-700 hover:underline font-mono">
+                                                        <span x-text="ent.name"></span> (<span x-text="ent.wikidata_id"></span>)
+                                                    </a>
+                                                    <span class="text-[10px] bg-green-100 text-green-800 font-bold px-1.5 py-0.2 rounded" x-text="ent.label"></span>
+                                                </div>
+                                                <p class="text-[11px] text-gray-500 mt-1 italic" x-text="ent.description || 'No description available on Wikidata.'"></p>
+                                            </div>
+                                        </template>
+                                    </div>
+                                </div>
+
+                                <div class="bg-red-50 p-3 rounded border border-red-200">
+                                    <h4 class="text-xs font-bold text-red-800 uppercase tracking-wider mb-2">❌ Rejected / Below Threshold</h4>
+                                    <div class="space-y-2">
+                                        <template x-if="p.rejected_entities.length === 0">
+                                            <p class="text-xs text-green-600 italic">No entities rejected in this block.</p>
+                                        </template>
+                                        <template x-for="ent in p.rejected_entities" :key="ent.name + (ent.wikidata_id || '')">
+                                            <div class="bg-white p-3 rounded border border-red-200 shadow-sm flex flex-col gap-1.5">
+                                                <div class="flex justify-between items-start">
+                                                    <div class="flex flex-col">
+                                                        <span class="text-xs font-bold text-gray-800" x-text="'Mention in text:'"></span>
+                                                        <span class="text-sm font-mono font-bold text-red-700 bg-red-50 px-1 py-0.5 rounded inline-block mt-0.5" x-text="ent.name"></span>
+                                                    </div>
+                                                    <div class="text-right flex flex-col items-end">
+                                                        <span class="text-[10px] font-mono font-bold px-2 py-0.5 rounded bg-red-100 text-red-800" x-text="'Score: ' + (ent.score ? ent.score.toFixed(3) : '0.000')"></span>
+                                                        <span class="text-[9px] text-red-600 font-medium mt-1" x-text="ent.reason"></span>
+                                                    </div>
+                                                </div>
+                                                <template x-if="ent.wikidata_id">
+                                                    <div class="bg-gray-50 p-2 rounded border border-gray-200 text-xs mt-1">
+                                                        <div class="flex justify-between items-center border-b border-gray-200 pb-1 mb-1">
+                                                            <span class="text-[11px] font-bold text-gray-500 uppercase tracking-tight">Rejected Wikidata Candidate:</span>
+                                                            <a :href="'https://www.wikidata.org/wiki/' + ent.wikidata_id" target="_blank" class="text-[11px] text-blue-600 hover:underline font-mono font-bold flex items-center gap-0.5">
+                                                                <span x-text="ent.wikidata_id"></span> ↗
+                                                            </a>
+                                                        </div>
+                                                        <div class="mb-1">
+                                                            <span class="text-gray-500 text-[11px]">Label:</span>
+                                                            <span class="font-semibold text-gray-800" x-text="ent.label_wikidata || 'No Label'"></span>
+                                                        </div>
+                                                        <div>
+                                                            <span class="text-gray-500 text-[11px]">Description:</span>
+                                                            <p class="text-[11px] text-gray-600 italic bg-white p-1 border rounded mt-0.5" x-text="ent.description || 'No description available.'"></p>
+                                                        </div>
+                                                    </div>
+                                                </template>
+                                            </div>
+                                        </template>
+                                    </div>
+                                </div>
+                            </div>
+
+                            <div class="mt-3 pt-3 border-t border-gray-200">
+                                <h4 class="text-xs font-bold text-gray-600 uppercase mb-2">⛓️ Generated Graph Relations</h4>
+                                <div class="flex flex-wrap gap-2">
+                                    <template x-if="p.relations.length === 0">
+                                        <span class="text-xs text-gray-400 italic">No relations extracted.</span>
+                                    </template>
+                                    <template x-for="rel in p.relations">
+                                        <div class="bg-blue-50 text-blue-800 border border-blue-200 px-2 py-1 rounded text-xs flex items-center gap-1 font-mono">
+                                            <span class="font-bold" x-text="rel.subject.label"></span>
+                                            <span class="text-gray-400 font-sans">➔</span>
+                                            <div class="flex items-center gap-1 bg-blue-200 text-blue-900 px-1 rounded text-[10px]">
+                                                <span x-text="rel.predicate.label"></span>
+                                            </div>
+                                            <span class="text-gray-400 font-sans">➔</span>
+                                            <span class="font-bold" x-text="rel.object.label"></span>
+                                        </div>
+                                    </template>
+                                </div>
+                            </div>
+                        </div>
+                    </template>
+                </div>
+            </div>
+        </div>
+
+        <div x-show="tab === 'analysis'" class="flex flex-col h-[85vh] gap-4">
+            <div class="flex justify-between items-center bg-white p-4 rounded shadow">
+                <h3 class="font-bold">Saved Documents Analysis</h3>
+                <button @click="loadEntries(offset)" class="bg-blue-600 text-white px-4 py-2 rounded text-sm hover:bg-blue-700">🔄 Refresh</button>
+            </div>
+
+            <div id="analysis-content" class="flex-1 overflow-y-auto space-y-4 pr-1">
+                <template x-for="(p, pIdx) in entries" :key="pIdx">
+                    <div class="bg-white p-4 rounded shadow border border-gray-100 space-y-3">
+                        <div class="flex justify-between items-center border-b border-gray-100 pb-2">
+                            <span class="text-xs font-bold text-blue-600 bg-blue-50 px-2 py-1 rounded font-mono" x-text="`📝 PARAGRAPH #${offset + pIdx + 1}`"></span>
+                            <span class="text-xs text-gray-400 font-mono" x-text="p.id || 'No ID'"></span>
+                        </div>
+
+                        <p class="text-sm text-gray-700 leading-relaxed bg-gray-50 p-3 rounded border border-gray-100 italic" x-text="p.document"></p>
+
+                        <div class="grid grid-cols-1 md:grid-cols-2 gap-4 pt-2">
+                            <div class="space-y-2">
+                                <h4 class="text-xs font-bold text-gray-500 uppercase tracking-wider">🏷️ Reconciled Entities</h4>
+
+                                <template x-if="!p.entities || !Object.keys(p.entities).some(k => p.entities[k].length > 0)">
+                                    <span class="text-xs text-gray-400 italic block">No entities detected.</span>
+                                </template>
+
+                                <div class="space-y-1">
+                                    <template x-for="(items, macroClass) in p.entities" :key="macroClass">
+                                        <div>
+                                            <template x-for="(ent, eIdx) in items" :key="ent.wikidata_id + ent.name">
+                                                <div class="border border-gray-200 rounded overflow-hidden text-xs bg-white mb-1.5">
+                                                    <div @click="toggleEntity(pIdx, macroClass + '-' + eIdx)"
+                                                         class="flex justify-between items-center p-2 bg-gray-50 hover:bg-gray-100 cursor-pointer transition-colors">
+                                                        <div class="flex items-center gap-2">
+                                                            <span class="font-bold text-gray-800" x-text="ent.name"></span>
+                                                            <span class="px-1.5 py-0.2 bg-purple-100 text-purple-800 rounded text-[10px] font-mono" x-text="macroClass"></span>
+                                                        </div>
+                                                        <div class="flex items-center gap-2">
+                                                            <template x-if="ent.score">
+                                                                <span class="text-[10px] text-green-700 font-mono font-bold" x-text="`Score: ${(ent.score * 100).toFixed(0)}%`"></span>
+                                                            </template>
+                                                            <span class="text-gray-400 text-[10px]" x-text="expandedEntities[`${pIdx}-${macroClass}-${eIdx}`] ? '▲' : '▼'"></span>
+                                                        </div>
+                                                    </div>
+
+                                                    <div x-show="expandedEntities[`${pIdx}-${macroClass}-${eIdx}`]" x-transition class="p-2 border-t border-gray-100 bg-white space-y-1.5 text-gray-600">
+                                                        <div class="space-y-1">
+                                                            <template x-if="ent.wikidata_id">
+                                                                <div class="flex gap-1">
+                                                                    <span class="font-bold text-gray-700">Wikidata ID:</span>
+                                                                    <a :href="`https://www.wikidata.org/wiki/${ent.wikidata_id}`" target="_blank" class="text-blue-600 hover:underline font-mono" x-text="ent.wikidata_id"></a>
+                                                                </div>
+                                                            </template>
+                                                            <div class="flex gap-1">
+                                                                <span class="font-bold text-gray-700">Official Label:</span>
+                                                                <span x-text="ent.label_wikidata || ent.name"></span>
+                                                            </div>
+                                                            <div>
+                                                                <span class="font-bold text-gray-700">Description:</span>
+                                                                <span class="text-gray-500" x-text="ent.description || 'No description available.'"></span>
+                                                            </div>
+                                                        </div>
+                                                    </div>
+                                                </div>
+                                            </template>
+                                        </div>
+                                    </template>
+                                </div>
+                            </div>
+
+                            <div class="space-y-2">
+                                <h4 class="text-xs font-bold text-gray-500 uppercase tracking-wider">⛓️ Graph Relations</h4>
+
+                                <template x-if="!p.relations || p.relations.length === 0">
+                                    <span class="text-xs text-gray-400 italic block">No valid relations extracted.</span>
+                                </template>
+
+                                <div class="flex flex-col gap-1.5">
+                                    <template x-for="(rel, rIdx) in p.relations" :key="rIdx">
+                                        <div class="bg-blue-50 text-blue-900 border border-blue-100 p-2 rounded text-xs font-mono flex flex-wrap items-center gap-1.5">
+                                            <span class="font-bold text-blue-950" x-text="rel.subject.label"></span>
+                                            <span class="text-gray-400 font-sans">➔</span>
+                                            <div class="flex items-center gap-1 bg-blue-200 text-blue-900 px-1.5 py-0.5 rounded text-[10px]">
+                                                <span x-text="rel.predicate.label"></span>
+                                            </div>
+                                            <span class="text-gray-400 font-sans">➔</span>
+                                            <span class="font-bold text-blue-950" x-text="rel.object.label"></span>
+                                        </div>
+                                    </template>
+                                </div>
+                            </div>
+                        </div>
+                    </div>
+                </template>
+            </div>
+
+            <div class="flex justify-center gap-2 pb-4 bg-white p-2 rounded shadow">
+                <button @click="offset = Math.max(0, offset - 50); loadEntries(offset)" :disabled="offset <= 0" class="px-4 py-2 bg-gray-200 rounded text-sm disabled:opacity-50 hover:bg-gray-300">Previous</button>
+                <button @click="offset += 50; loadEntries(offset)" class="px-4 py-2 bg-gray-200 rounded text-sm hover:bg-gray-300">Next</button>
+            </div>
+        </div>
+
+        <div x-show="tab === 'query'" class="flex flex-col gap-6">
+            <div class="bg-white p-4 shadow rounded flex gap-2 items-center">
+                <input x-model="queryText"
+                    @keyup.enter="runQuery(queryText)"
+                    class="flex-1 p-2.5 border rounded text-sm focus:outline-none focus:border-purple-500"
+                    placeholder="Ask something to the database...">
+                <button @click="runQuery(queryText)"
+                        class="bg-purple-600 hover:bg-purple-700 text-white px-6 py-2.5 rounded font-medium text-sm transition-colors flex items-center gap-2">
+                    🔍 Query
+                </button>
+            </div>
+
+            <div class="grid grid-cols-1 lg:grid-cols-2 gap-6 items-start">
+                <div class="bg-gradient-to-br from-blue-50 to-indigo-50 p-6 rounded shadow border border-blue-200 min-h-[300px]">
+                    <div class="flex items-center gap-2 mb-4 border-b border-blue-200 pb-2">
+                        <span class="text-xl">🤖</span>
+                        <h3 class="font-bold text-blue-900 text-lg">LLM Information Synthesis</h3>
+                    </div>
+                    <div id="llm-response" class="text-gray-800 text-sm leading-relaxed whitespace-pre-line font-sans">
+                        <p class="text-gray-400 italic">Send a query to generate the semantic synthesis...</p>
+                    </div>
+                </div>
+
+                <div class="bg-gray-50 p-6 rounded shadow border border-gray-200">
+                    <div class="flex items-center gap-2 mb-4 border-b border-gray-200 pb-2">
+                        <span class="text-xl">📚</span>
+                        <h3 class="font-bold text-gray-800 text-lg">Extracted RAG Context</h3>
+                    </div>
+
+                    <div id="related-sources-content" class="flex flex-col gap-4 overflow-y-auto max-h-[600px] pr-2">
+                        <template x-for="(source, index) in sources" :key="index">
+                            <div class="bg-white p-4 rounded border border-gray-200 shadow-sm hover:shadow transition-shadow">
+                                <div class="flex justify-between items-center mb-2 pb-1 border-b border-gray-100">
+                                    <span class="text-[11px] font-mono font-bold bg-gray-100 text-gray-700 px-2 py-0.5 rounded" x-text="`Paragraph ID: ${source.id}`"></span>
+                                    <span class="text-[11px] text-green-600 font-mono font-bold" x-show="source.score" x-text="`Score: ${(source.score * 100).toFixed(0)}%`"></span>
+                                </div>
+
+                                <p class="text-gray-700 text-sm mb-3 font-sans leading-relaxed italic" x-text="`“${source.text}”`"></p>
+
+                                <div class="mb-3" x-show="source.entities && Object.keys(source.entities).some(k => source.entities[k].length > 0)">
+                                    <h4 class="text-[11px] font-bold text-gray-400 uppercase tracking-wider mb-1">Detected Entities</h4>
+                                    <div class="flex flex-wrap gap-1.5">
+                                        <template x-for="(items, macroClass) in source.entities" :key="macroClass">
+                                            <template x-for="ent in items" :key="ent.wikidata_id + ent.name">
+                                                <div class="inline-flex items-center gap-1 bg-purple-50 border border-purple-100 rounded px-2 py-0.5 text-xs">
+                                                    <span class="font-medium text-purple-900" x-text="ent.label_wikidata || ent.name"></span>
+                                                    <template x-if="ent.wikidata_id">
+                                                        <a :href="`https://www.wikidata.org/wiki/${ent.wikidata_id}`" target="_blank" class="text-[10px] text-blue-500 hover:underline font-mono ml-0.5">🔗 QID</a>
+                                                    </template>
+                                                </div>
+                                            </template>
+                                        </template>
+                                    </div>
+                                </div>
+
+                                <div x-show="source.relations && source.relations.length > 0">
+                                    <h4 class="text-[11px] font-bold text-gray-400 uppercase tracking-wider mb-1">Detected Relations</h4>
+                                    <div class="space-y-1">
+                                        <template x-for="rel in source.relations" :key="JSON.stringify(rel)">
+                                            <div class="flex items-center gap-2 text-xs bg-gray-50 p-1.5 rounded border border-gray-100 font-mono">
+                                                <span class="text-purple-700 font-bold" x-text="rel.subject.label"></span>
+                                                <span class="text-gray-400 text-[10px]">➔ <span class="bg-gray-200 text-gray-700 px-1 rounded text-[9px]" x-text="rel.predicate.label"></span> ➔</span>
+                                                <span class="text-blue-700 font-bold" x-text="rel.object.label"></span>
+                                            </div>
+                                        </template>
+                                    </div>
+                                </div>
+                            </div>
+                        </template>
+                    </div>
+                </div>
+            </div>
+        </div>
+    </main>
+
+    <!-- New Project Modal -->
+    <div x-show="showModal" x-cloak class="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center z-50">
+        <div class="bg-white p-6 rounded shadow w-96">
+            <h3 class="font-bold mb-4 text-gray-800">Create Project</h3>
+
+            <label class="block text-xs font-bold text-gray-500 uppercase mb-1">Project ID</label>
+            <input x-model="newProject.id" placeholder="e.g. lodrag-test" class="w-full border p-2 mb-3 rounded text-sm focus:outline-none focus:border-blue-500">
+
+            <label class="block text-xs font-bold text-gray-500 uppercase mb-1">Collection Name</label>
+            <input x-model="newProject.name" placeholder="e.g. Anthology Collection" class="w-full border p-2 mb-3 rounded text-sm focus:outline-none focus:border-blue-500">
+
+            <label class="block text-xs font-bold text-gray-500 uppercase mb-1">Description</label>
+            <textarea x-model="newProject.description" placeholder="Enter a brief description..." rows="3" class="w-full border p-2 mb-3 rounded text-sm focus:outline-none focus:border-blue-500 font-sans resize-none"></textarea>
+
+            <label class="block text-xs font-bold text-gray-500 uppercase mb-1">Document Language</label>
+            <select x-model="newProject.language" class="w-full border p-2 mb-2 rounded text-sm bg-white focus:outline-none focus:border-blue-500">
+                <option value="en">🇬🇧 English</option>
+                <option value="it">🇮🇹 Italiano</option>
+                <option value="es">🇪🇸 Español</option>
+                <option value="fr">🇫🇷 Français</option>
+                <option value="de">🇩🇪 Deutsch</option>
+                <option value="pt">🇵🇹 Português</option>
+                <option value="zh">🇨🇳 中文 (Chinese)</option>
+            </select>
+
+            <div class="flex justify-end gap-2 mt-4">
+                <button @click="showModal = false" class="px-4 py-2 text-sm text-gray-600 hover:text-gray-800">Cancel</button>
+                <button @click="createProject" class="bg-green-600 text-white px-4 py-2 rounded text-sm font-medium hover:bg-green-700 transition-colors">Save</button>
+            </div>
+        </div>
+    </div>
+
+    <!-- Configuration Files Modal (integrated into app()) -->
+    <div x-show="showConfigModal" x-cloak class="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center z-50">
+        <div class="bg-white p-6 rounded shadow-lg w-[600px]">
+            <div class="flex justify-between items-center mb-4">
+                <h3 class="text-lg font-bold text-gray-800">⚙️ Configuration Files</h3>
+                <button @click="showConfigModal = false" class="text-gray-400 hover:text-gray-600">✕</button>
+            </div>
+
+            <!-- Tab bar -->
+            <div class="flex border-b border-gray-200 mb-3">
+                <template x-for="t in configTabs" :key="t.id">
+                    <button @click="switchConfigTab(t.id)"
+                        class="px-4 py-2 text-sm font-medium -mb-px border-b-2 transition-colors"
+                        :class="activeConfigTab === t.id ? 'border-gray-800 text-gray-800' : 'border-transparent text-gray-400 hover:text-gray-600'"
+                        x-text="t.label"></button>
+                </template>
+            </div>
+
+            <!-- Editor -->
+            <div class="relative">
+                <template x-if="configLoading">
+                    <p class="text-xs text-gray-400 py-8 text-center">Loading…</p>
+                </template>
+                <template x-if="!configLoading">
+                    <textarea x-model="configEditorContent"
+                        class="w-full h-80 bg-gray-900 text-green-400 text-xs font-mono p-4 rounded resize-none focus:outline-none"
+                        spellcheck="false"></textarea>
+                </template>
+            </div>
+
+            <!-- Message -->
+            <p x-show="configMessage" x-text="configMessage"
+               :class="configMessageError ? 'text-red-500' : 'text-green-600'"
+               class="text-xs mt-2"></p>
+
+            <div class="flex justify-end gap-2 mt-4">
+                <button @click="showConfigModal = false"
+                    class="bg-gray-200 text-gray-700 px-4 py-2 rounded text-sm font-medium">Close</button>
+                <button @click="saveConfig()" :disabled="configSaving"
+                    class="bg-gray-800 text-white px-4 py-2 rounded text-sm font-medium disabled:opacity-50"
+                    x-text="configSaving ? 'Saving…' : 'Save'"></button>
+            </div>
+        </div>
+    </div>
+
+    <script>
+    function app() {
+        return {
+            tab: 'ingest',
+            projects: [],
+            selectedProject: null,
+            showModal: false,
+            showConfigModal: false,
+            textInput: '',
+            selectedFileName: '',
+            loadingTest: false,
+            testResults: [],
+            offset: 0,
+            entries: [],
+            expandedEntities: {},
+            queryText: '',
+            sources: [],
+            configOptions: { language: 'it', aiMode: false },
+            newProject: { id: '', name: '', description: '', language: 'it' },
+
+            // --- Config modal state ---
+            configTabs: [
+                { id: 'schema',  label: 'schema.json' },
+                { id: 'models',  label: 'models.json' },
+                { id: 'prompts', label: 'prompts.json' }
+            ],
+            activeConfigTab: 'schema',
+            configEditorContent: '',
+            configLoading: false,
+            configSaving: false,
+            configMessage: '',
+            configMessageError: false,
+
+            async init() {
+                try {
+                    const res = await fetch('/api/config/projects');
+                    this.projects = await res.json();
+                    if (this.projects.length > 0) {
+                        this.selectedProject = this.projects[0];
+                    }
+                } catch (e) {
+                    console.error("Error loading projects", e);
+                }
+
+                this.$watch('tab', (value) => {
+                    if (value === 'analysis') this.loadEntries(0);
+                });
+            },
+
+            loadEntries(currentOffset = 0) {
+                this.offset = currentOffset;
+                if (!this.selectedProject) return;
+
+                fetch(`/api/projects/entries?project_id=${this.selectedProject.id}&offset=${this.offset}&limit=50`)
+                    .then(res => res.json())
+                    .then(response => {
+                        const rawList = response && Array.isArray(response.entries) ? response.entries : [];
+
+                        this.entries = rawList.map(item => {
+                            const meta = item.metadata || {};
+                            let entitiesObj = {};
+                            let relationsArr = [];
+
+                            try {
+                                if (meta.entities_json) {
+                                    entitiesObj = typeof meta.entities_json === 'string' ? JSON.parse(meta.entities_json) : meta.entities_json;
+                                }
+                                if (meta.relations_json) {
+                                    relationsArr = typeof meta.relations_json === 'string' ? JSON.parse(meta.relations_json) : (meta.relations_json || []);
+                                }
+                            } catch (e) {
+                                console.error("JSON parsing error (Analysis):", e);
+                            }
+
+                            return {
+                                id: item.id,
+                                document: item.document,
+                                entities: entitiesObj,
+                                relations: relationsArr
+                            };
+                        });
+                    })
+                    .catch(err => console.error("Error fetching analysis records:", err));
+            },
+
+            toggleEntity(paragraphIdx, entityUniqueKey) {
+                const key = `${paragraphIdx}-${entityUniqueKey}`;
+                this.expandedEntities[key] = !this.expandedEntities[key];
+            },
+
+            updateRelatedSources(formattedQueryEntries) {
+                this.sources = formattedQueryEntries.map(item => {
+                    const meta = item.metadata || {};
+                    let entitiesObj = {};
+                    let relationsArr = [];
+
+                    try {
+                        if (meta.entities_json) {
+                            entitiesObj = typeof meta.entities_json === 'string' ? JSON.parse(meta.entities_json) : meta.entities_json;
+                        }
+                        if (meta.relations_json) {
+                            relationsArr = typeof meta.relations_json === 'string' ? JSON.parse(meta.relations_json) : (meta.relations_json || []);
+                        }
+                    } catch (e) {
+                        console.error("JSON parsing error (Query):", e);
+                    }
+
+                    return {
+                        id: item.id,
+                        text: item.document,
+                        score: item.score || null,
+                        entities: entitiesObj,
+                        relations: relationsArr
+                    };
+                });
+            },
+
+            async runQuery(queryText) {
+                if (!this.selectedProject) return alert("Select a project!");
+                if (!queryText || !queryText.trim()) return alert("Enter a question!");
+
+                this.sources = [];
+                const responseEl = document.getElementById('llm-response');
+                responseEl.innerText = "The LLM is processing...";
+
+                try {
+                    const response = await fetch('/api/query', {
+                        method: 'POST',
+                        headers: { 'Content-Type': 'application/x-www-form-urlencoded' },
+                        body: new URLSearchParams({
+                            'project_id': this.selectedProject.id,
+                            'text': queryText,
+                            'limit': 5
+                        })
+                    });
+
+                    if (!response.ok) {
+                        responseEl.innerText = "Error during the request.";
+                        return;
+                    }
+
+                    const reader = response.body.getReader();
+                    const decoder = new TextDecoder("utf-8");
+                    let buffer = "";
+
+                    while (true) {
+                        const { value, done } = await reader.read();
+                        if (done) break;
+
+                        buffer += decoder.decode(value, { stream: true });
+                        let lines = buffer.split("\n\n");
+                        buffer = lines.pop();
+
+                        for (const line of lines) {
+                            if (line.startsWith("data: ")) {
+                                const jsonStr = line.replace("data: ", "").trim();
+                                if (jsonStr === "[DONE]") return;
+
+                                try {
+                                    const parsed = JSON.parse(jsonStr);
+
+                                    if (parsed.type === 'results') {
+                                        responseEl.innerText = "";
+                                        this.updateRelatedSources(parsed.data);
+                                    }
+                                    else if (parsed.type === 'stream') {
+                                        responseEl.innerText += parsed.token;
+                                        responseEl.scrollTop = responseEl.scrollHeight;
+                                    }
+                                } catch (e) {
+                                    console.error("JSON parsing error in stream:", e);
+                                }
+                            }
+                        }
+                    }
+                } catch (err) {
+                    responseEl.innerText = "Network or connection error.";
+                    console.error(err);
+                }
+            },
+
+            async createProject() {
+                if (!this.newProject.id || !this.newProject.name) return alert("ID and Name are required!");
+                const payloadObj = {
+                    id: this.newProject.id,
+                    collection_name: this.newProject.name,
+                    description: this.newProject.description,
+                    language: this.newProject.language
+                };
+                try {
+                    const res = await fetch('/api/config/projects', {
+                        method: 'POST',
+                        headers: {'Content-Type': 'application/json'},
+                        body: JSON.stringify(payloadObj)
+                    });
+                    if (res.ok) {
+                        this.projects.push(payloadObj);
+                        this.selectedProject = payloadObj;
+                        this.showModal = false;
+                        this.newProject = { id: '', name: '', description: '', language: 'it' };
+                        this.loadEntries(0);
+                    } else {
+                        const err = await res.json();
+                        alert("Error: " + (err.detail || "Try again"));
+                    }
+                } catch (e) { alert("Network error."); }
+            },
+
+            async runIngestTest() {
+                if (!this.selectedProject || !this.textInput.trim()) return alert("Missing data!");
+                this.loadingTest = true;
+                try {
+                    const res = await fetch('/api/ingest/test', {
+                        method: 'POST',
+                        headers: {'Content-Type': 'application/json'},
+                        body: JSON.stringify({
+                            project_id: this.selectedProject.id,
+                            text_input: this.textInput,
+                            ai_mode: this.configOptions.aiMode,
+                            language: this.configOptions.language
+                        })
+                    });
+                    const jsonRes = await res.json();
+                    this.testResults = jsonRes.data || jsonRes;
+                } catch (e) { alert("Error: " + e.message); }
+                finally { this.loadingTest = false; }
+            },
+
+            async deleteProject(projectId) {
+                if (!confirm(`Permanently delete project "${projectId}"?`)) return;
+                try {
+                    const res = await fetch(`/api/projects/${projectId}`, { method: 'DELETE' });
+                    if (res.ok) {
+                        this.projects = this.projects.filter(p => p.id !== projectId);
+                        if (this.selectedProject && this.selectedProject.id === projectId) {
+                            this.selectedProject = this.projects.length > 0 ? this.projects[0] : null;
+                            this.entries = [];
+                            if (this.selectedProject) this.loadEntries(0);
+                        }
+                        alert("Project deleted!");
+                    }
+                } catch (error) { alert("Network error."); }
+            },
+
+            async uploadFile() {
+                if (!this.selectedProject) return alert("Select a project!");
+                const fileField = document.getElementById('fileInput');
+                if (fileField.files.length === 0) return alert("Select a file!");
+                this.loadingTest = true;
+                try {
+                    const formData = new FormData();
+                    formData.append("file", fileField.files[0]);
+                    formData.append("project_id", this.selectedProject.id);
+                    formData.append("ai_mode", this.configOptions.aiMode);
+                    formData.append("language", this.configOptions.language);
+
+                    const res = await fetch('/api/ingest/upload', { method: 'POST', body: formData });
+                    if (res.ok) {
+                        this.textInput = '';
+                        this.selectedFileName = '';
+                        fileField.value = '';
+                        this.tab = 'analysis';
+                        this.loadEntries(0);
+                    }
+                } catch(e) { console.error(e); }
+                finally { this.loadingTest = false; }
+            },
+
+            // --- Config modal methods ---
+            async openConfigModal() {
+                this.showConfigModal = true;
+                this.activeConfigTab = 'schema';
+                this.configMessage = '';
+                await this.loadConfigTab('schema');
+            },
+
+            async switchConfigTab(id) {
+                this.activeConfigTab = id;
+                this.configMessage = '';
+                await this.loadConfigTab(id);
+            },
+
+            async loadConfigTab(id) {
+                this.configLoading = true;
+                try {
+                    const res = await fetch(`/api/config/${id}`);
+                    if (!res.ok) throw new Error(`HTTP ${res.status}`);
+                    const data = await res.json();
+                    this.configEditorContent = JSON.stringify(data, null, 2);
+                } catch (e) {
+                    this.configEditorContent = '';
+                    this.showConfigMessage(`Load error: ${e.message}`, true);
+                } finally {
+                    this.configLoading = false;
+                }
+            },
+
+            async saveConfig() {
+                let parsed;
+                try {
+                    parsed = JSON.parse(this.configEditorContent);
+                } catch (e) {
+                    this.showConfigMessage('Invalid JSON: ' + e.message, true);
+                    return;
+                }
+
+                this.configSaving = true;
+                try {
+                    const res = await fetch(`/api/config/${this.activeConfigTab}`, {
+                        method: 'PUT',
+                        headers: { 'Content-Type': 'application/json' },
+                        body: JSON.stringify(parsed)
+                    });
+                    if (!res.ok) throw new Error(`HTTP ${res.status}`);
+                    this.showConfigMessage('Saved successfully.', false);
+                } catch (e) {
+                    this.showConfigMessage(`Save error: ${e.message}`, true);
+                } finally {
+                    this.configSaving = false;
+                }
+            },
+
+            showConfigMessage(msg, isError) {
+                this.configMessage = msg;
+                this.configMessageError = isError;
+                if (!isError) setTimeout(() => { this.configMessage = ''; }, 3000);
+            }
+        }
+    }
+    </script>
+</body>
+</html>

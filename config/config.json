@@ -1,0 +1,8 @@
+{
+    "HF_token": null,
+    
+    "ingest_batch_size": 3,
+    
+    "wikidata_api_chunk_size": 49,
+    "wikidata_threshold": 0.62
+}

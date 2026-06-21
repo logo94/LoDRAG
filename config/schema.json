@@ -1,0 +1,48 @@
+{
+    "entities": {
+        "person": {
+            "description": "Humans, historical figures, authors, scholars, and intellectuals.",
+            "qids": ["Q5", "Q95074"],
+            "relations": ["P19", "P20", "P101", "P106", "P108", "P1416"]
+        },
+        "work": {
+            "description": "Literary works, essays, books, poems, treatises, and historical manuscripts cited by their specific title.",
+            "qids": ["Q571", "Q386724", "Q7725634", "Q47461344"],
+            "relations": ["P50", "P57", "P136", "P407", "P577", "P921", "P8411"]
+        },
+        "place": {
+            "description": "Geographical locations, cities, historical states, and geopolitical entities.",
+            "qids": ["Q515", "Q486972", "Q747074", "Q618123", "Q17334923", "Q2221906", "Q82794"],
+            "relations": ["P17", "P131"]
+        },
+        "organization": {
+            "description": "Institutions, universities, academies, guilds, and historical corporate bodies.",
+            "qids": ["Q43229", "Q163740", "Q167037"],
+            "relations": ["P17", "P159", "P131"]
+        },
+        "event": {
+            "description": "Historical happenings, battles, conferences, festivals, and scheduled events.",
+            "qids": ["Q1190554", "Q1656682"],
+            "relations": ["P17", "P276", "P585", "P664", "P710"]
+        },
+        "concept": {
+            "description": "Abstract ideas, philosophical currents, literary movements, and theoretical categories.",
+            "qids": ["Q40821", "Q11862829", "Q151885", "Q7184903"],
+            "relations": ["P138", "P1269", "P1552", "P2579"]
+        }
+    },
+    "allowed_external_authority_pids": [
+        "P213", 
+        "P214", 
+        "P227", 
+        "P244",
+        "P245",
+        "P268",
+        "P269",
+        "P345",
+        "P396",
+        "P508",
+        "P950", 
+        "P1014"
+    ]
+}

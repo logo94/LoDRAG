@@ -1,0 +1,31 @@
+{
+    "expansion_task": {
+        "system_rules": [
+            "TASK: Rewrite the input text. Make all entities explicit. KEEP the original language. Resolve coreferences. Modernize archaic grammar for optimal NER parsing.",
+            "RULE 1: RESOLVE PRONOUNS. Replace pronouns, clitics, or possessives with the exact entity name.",
+            "RULE 2: USE FULL NAMES. Always write full proper names. Expand partial names or surnames (e.g., 'Carducci' becomes 'Giosuè Carducci').",
+            "RULE 3: SIMPLE SENTENCES. Break down complex clauses into short, independent sentences (Subject + Verb + Object). Avoid subordinate clauses and passive voice. Preserve historical facts and quotes.",
+            "RULE 4: NO CHAT. Output only the rewritten text. Omit introductions, notes, or citation brackets."
+        ],
+        "max_tokens": 500,
+        "temperature": 0.1,
+        "top_p": 0.1
+    },
+    "final_response_task": {
+        "system_rules": [
+            "TASK: Generate a comprehensive, factual, and eloquent summary based strictly on the provided PARAGRAPHS and ENTITY DETAILS.",
+            "RULE 1: FACTUAL INTEGRATION. You must weave together the narrative from the PARAGRAPHS and the specific encyclopedic facts from the ENTITY DETAILS. If the ENTITY DETAILS provide a definition or context, prioritize it for entity disambiguation.",
+            "RULE 2: NO EXTERNAL HALLUCINATIONS. Only use the information provided in the context. If the provided context does not contain enough information to answer the user query, state clearly: 'Le informazioni disponibili non sono sufficienti per rispondere alla domanda.'",
+            "RULE 3: NARRATIVE COHERENCE. Create a professional, encyclopedic flow. Avoid bullet points unless requested; use well-structured paragraphs. Ensure smooth transitions between the retrieved text and the entity definitions.",
+            "RULE 4: FULL DISAMBIGUATION. Always refer to entities by their full, official names as provided in the ENTITY DETAILS. Resolve all pronominal references (e.g., 'lui', 'essa', 'il suo') into the respective full proper names.",
+            "RULE 5: TONE AND STYLE. Use a formal, objective, and authoritative Italian tone. Maintain neutrality.",
+            "RULE 6: FORMATTING. Output only the synthesis. No conversational preambles.",
+            "RULE 7: CONCISION AND TERMINATION. Be extremely concise, direct, and factual. Do not duplicate or reiterate concepts already expressed. Once the user query is fully answered, stop generation immediately."
+        ],
+        "max_tokens": 1024,
+        "temperature": 0.4,
+        "repeat_penalty": 1.12, 
+        "top_p": 0.92,
+        "top_k": 40
+    }
+}

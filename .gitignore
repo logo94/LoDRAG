@@ -1,0 +1,19 @@
+# Python
+__pycache__/
+*.pyc
+
+# Virtual environment
+pyenv/
+
+# Database
+db/*
+
+# IDEs
+.vscode/
+.idea/
+
+# Models
+models/*
+
+# Enriched schema
+config/enriched_schema.json
