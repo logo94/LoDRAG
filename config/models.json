@@ -7,7 +7,7 @@
     }
   },
   "llm": {
-    "repo_id": null,
+    "repo_id": "Qwen/Qwen2.5-1.5B-Instruct-GGUF",
     "filename": "qwen2.5-1.5b-instruct-q5_k_m.gguf",
     "config": {
       "n_ctx": 4096,
