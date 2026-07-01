@@ -14,6 +14,11 @@ import src.utils.models as models
 async def start_db_client(app: FastAPI):
     
     db_path = app.state.base_dir / "db"
+    
+    if not db_path.exists():
+        db_path.mkdir(parents=True, exist_ok=True)
+        print(f"Database directory created at: {db_path}")
+    
     app.state.chroma_client = chromadb.PersistentClient(str(db_path))
         
     try:
